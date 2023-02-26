@@ -17,6 +17,7 @@ defp next(self) do
   Debug.letter(self.config, "D")
   receive do
   { :EXECUTE, transaction } ->
+    Debug.info(self.config, "Execute transaction: #{inspect transaction}", 10)
     { :MOVE, amount, account1, account2 } = transaction
     self = self |> balance(account1, Map.get(self.balances, account1, 0) + amount )
     self = self |> balance(account2, Map.get(self.balances, account2, 0) - amount )

@@ -1,58 +1,105 @@
+# Khemi Chew (kjc20)
+
 defmodule Replica do
-  def start(config, initial_state) do
-    self = %{
-      config: config,
-      state: initial_state,
-      slot_in: 1,
-      slot_out: 1,
-      requests: [], # list of commands
-      proposals: Map.new(),
-      decisions: Map.new() # map from slot number to command
-    }
-    Debug.starting(config) # check that replica is initiated
-    self |> next()
-  end
-
-  def propose(self) do
-    %{self | proposals: MapSet.union(self.proposals, self.requests)}
-  end
-
-  def perform(%{decisions: decisions, slot_out: so} = self, %Command{client_pid: k, command_id: cid, operation: op} = c) do
-    if 1..(so - 1) |> Enum.filter(fn s -> decisions[s] == c end) |> Enum.empty?() do # check if c is already executed
-      send(k, %ClientResponse{command_id: cid, result: op.(self.state)}) # TODO FIX THIS LINE
+  def start(config, database) do
+    receive do
+      {:BIND, leaders} ->
+        Debug.info(config, "  Replica #{config.node_num} started with database #{inspect database}")
+        %{
+          config: config,
+          database_pid: database,
+          slot_in: 1,
+          slot_out: 1,
+          # list of commands (raw type)
+          requests: [],
+          # Map from slot number to command (raw type)
+          proposals: Map.new(),
+          # map from slot number to command (raw type)
+          decisions: Map.new(),
+          leaders: leaders
+        }
+        |> next()
     end
-    %{self | slot_out: so + 1}
   end
 
-  def considers_execution(self) do
-    if Map.has_key?(self.decisions, self.slot_out) do
-      requests = if Map.has_key?(self.proposals, self.slot_out)
-      and self.proposals[self.slot_out] != self.decisions[self.slot_out] do
-        self.requests ++ [self.proposals[self.slot_out]]
-      else
-        self.requests
-      end
-      proposals = Map.delete(self.proposals, self.slot_out)
+  @tailrec
+  def propose(%{requests: [cmd | cmds] = requests, slot_in: slot_in} = self) do
+    Debug.info(self.config, " Requests element count: #{length(requests)} (slot #{slot_in})", 20)
 
-      %{self | requests: requests, proposals: proposals}
-      |> perform(self.decisions[self.slot_out])
-      |> considers_execution()
+      (if not Map.has_key?(self.decisions, slot_in) do
+        proposals = Map.put(self.proposals, slot_in, cmd)
+
+        # send propose to all leaders
+        for pid <- self.leaders do
+          send pid, %Propose{slot_number: slot_in, command: cmd}
+        end
+
+        %{self | requests: cmds, proposals: proposals}
+      else
+        self
+      end)
+      |> Map.put(:slot_in, slot_in + 1)
+      |> propose()
+  end
+
+  def propose(self), do: self
+
+  def perform(%{decisions: decisions, slot_out: slot_out} = self) do
+    {client_pid, command_id, transaction} = decisions[slot_out]
+    # check if command has not already been executed
+    if 1..(slot_out - 1)
+       |> Enum.filter(fn s -> decisions[s] == decisions[slot_out] end)
+       |> Enum.empty?() do
+
+      # execute command on current state
+      send self.database_pid, {:EXECUTE, transaction}
+      Debug.info(self.config, "  Executing #{inspect transaction} on #{inspect self.database_pid} (slot #{slot_out})")
+
+      # return result to client
+      send client_pid, {:CLIENT_REPLY, command_id, :ok}
+    end
+
+    %{self | slot_out: slot_out + 1}
+  end
+
+  def try_perform(self) do
+    if Map.has_key?(self.decisions, self.slot_out) do
+      requests =
+        if Map.has_key?(self.proposals, self.slot_out) and
+             self.proposals[self.slot_out] != self.decisions[self.slot_out] do
+          self.requests ++ [self.proposals[self.slot_out]]
+        else
+          self.requests
+        end
+
+      %{self | requests: requests, proposals: Map.delete(self.proposals, self.slot_out)}
+      |> perform()
+      |> try_perform()
     else
       self
     end
   end
 
+  @tailrec
   def next(self) do
     receive do
-      %ClientRequest{command: c} ->
-        %{self | requests: MapSet.put(self.requests, c)}
+      {:CLIENT_REQUEST, cmd} ->
+        Debug.info(self.config, "  Received transaction: #{inspect cmd}", 30)
+        send self.config.monitor, {:CLIENT_REQUEST, self.config.node_num}
+        %{ self | requests: self.requests ++ [cmd] }
         |> propose()
         |> next()
-      %Decision{slot_number: s, command: c} ->
-        %{self | decisions: Map.put(self.decisions, s, c)}
-        |> considers_execution()
+
+      %Decision{slot_number: s, command: cmd} ->
+        Debug.info(self.config, "  Received decision: #{inspect cmd} (slot #{s})", 10)
+        %{self | decisions: Map.put(self.decisions, s, cmd)}
+        |> try_perform()
         |> propose()
         |> next()
+
+      unexpected ->
+        Helper.node_halt "Database: unexpected message #{inspect unexpected}"
+
     end
   end
 end
