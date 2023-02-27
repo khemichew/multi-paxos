@@ -25,19 +25,14 @@ defmodule PValue do
 end
 
 defmodule PValues do
-  # given a set := {(s, pvalue) | pvalues}, returns the maximum pvalue for each unique slot number
+  # given a set := {(s, pvalue) | pvalues}, returns a map of slot number
+  # to command corresponding to maximum ballot number
   def pmax(pvalues) do
     pvalues
     |> Enum.group_by(& &1.slot_number)
-    |> Enum.map(fn {_, pvals} -> pvals |> Enum.max_by(& &1.ballot_number) end)
-    |> Enum.reduce(Map.new(), fn pval, acc -> Map.put(acc, pval.slot_number, pval.command) end)
+    |> Enum.reduce(Map.new(), fn {slot_number, pvals}, acc ->
+      %PValue{command: cmd} = Enum.max_by(pvals, fn pval -> pval.ballot_number end)
+      Map.put(acc, slot_number, cmd)
+    end)
   end
 end
-
-# defmodule Command do
-#   @enforce_keys [:client_pid, :command_id, :operation]
-#   @type client_pid:: PID
-#   @type command_id:: non_neg_integer
-#   @type operation:: String.t()
-#   defstruct [:client_pid, :command_id, :operation]
-# end
