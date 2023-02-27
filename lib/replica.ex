@@ -24,7 +24,6 @@ defmodule Replica do
     end
   end
 
-  @tailrec
   def propose(%{requests: [cmd | cmds] = requests, slot_in: slot_in} = self) do
     Debug.info(self.config, " Requests element count: #{length(requests)} (slot #{slot_in})", 20)
 
@@ -64,7 +63,6 @@ defmodule Replica do
     %{self | slot_out: slot_out + 1}
   end
 
-  @tailrec
   def try_perform(self) do
     if Map.has_key?(self.decisions, self.slot_out) do
       requests =
@@ -83,7 +81,6 @@ defmodule Replica do
     end
   end
 
-  @tailrec
   def next(self) do
     receive do
       {:CLIENT_REQUEST, cmd} ->

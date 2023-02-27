@@ -87,11 +87,11 @@ defmodule Leader do
 
         # the leader is competing with another leader for the same proposal
         (if other_pid > self() do
-          Debug.info(self.config, "Increase timeout", 5)
+          Debug.info(self.config, "Increase timeout", 30)
           self |> do_timeout(:increase)
         else
 
-          Debug.info(self.config, "Maintain timeout", 5)
+          Debug.info(self.config, "Maintain timeout", 30)
           self |> do_timeout(:maintain)
         end) |> next()
 
