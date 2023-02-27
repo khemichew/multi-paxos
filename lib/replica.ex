@@ -19,6 +19,8 @@ defmodule Replica do
           leaders: leaders
         }
         |> next()
+      unexpected ->
+        Helper.node_halt("Unexpected message in Replica: #{inspect unexpected}")
     end
   end
 
@@ -62,6 +64,7 @@ defmodule Replica do
     %{self | slot_out: slot_out + 1}
   end
 
+  @tailrec
   def try_perform(self) do
     if Map.has_key?(self.decisions, self.slot_out) do
       requests =

@@ -1,5 +1,6 @@
 # Khemi Chew (kjc20)
 
+
 defmodule P1A do
   @enforce_keys [:scout_pid, :ballot_number]
   @type scout_pid:: PID

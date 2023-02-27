@@ -27,11 +27,11 @@ defmodule Acceptor do
 
         self |> next()
 
-      %P2A{commander_pid: pid, pvalue: %PValue{ballot_number: b} = pvalue} ->
+      %P2A{commander_pid: pid, pvalue: %PValue{ballot_number: b, slot_number: _s, command: _c} = pvalue} ->
         accepted =
           if b == self.ballot_number, do: self.accepted |> MapSet.put(pvalue), else: self.accepted
 
-        self = Map.put(self, :accepted, accepted)
+        self = %{self | accepted: accepted}
         send(pid, %P2B{acceptor_pid: self(), ballot_number: self.ballot_number})
         self |> next()
 

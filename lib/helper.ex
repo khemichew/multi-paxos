@@ -24,7 +24,7 @@ def node_string() do
 end
 
 def node_exit do 	# nicely stop and exit the node
-  System.stop	# System.halt(1) for a hard non-tidy node exit
+  System.stop(0)	# System.halt(1) for a hard non-tidy node exit
 end # node_exit
 
 def node_halt(message) do

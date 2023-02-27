@@ -6,7 +6,7 @@ defmodule Commander do
       config: config,
       leader_pid: leader_pid,
       acceptors: acceptors,
-      waitfor: Enum.into(acceptors, MapSet.new()),
+      waitfor: acceptors,
       replicas: replicas,
       pvalue: pvalue
     }
@@ -29,20 +29,23 @@ defmodule Commander do
 
         if MapSet.size(waitfor) < MapSet.size(self.acceptors) / 2 do
           # Notifies all replicas that command c has been decided for slot s
-          self.replicas
-          |> Enum.each(fn pid -> send(pid, %Decision{slot_number: s, command: cmd}) end)
+          for r_pid <- self.replicas do
+            send(r_pid, %Decision{slot_number: s, command: cmd})
+          end
 
           send self.config.monitor, {:COMMANDER_FINISHED, self.config.node_num}
-          Helper.node_exit()
+          Process.exit(self(), :normal)
+          Helper.node_halt("Unreachable code in Commander: decision has been made")
         end
 
         %{self | waitfor: waitfor} |> next()
 
-      %P2B{ballot_number: b1} ->
+      %P2B{acceptor_pid: _pid, ballot_number: b1} ->
         # the commander learns that the ballot b1 is active (b1 is necessarily greater than b since b1 >= b && b1 != b)
         send self.leader_pid, %Preempted{ballot_number: b1}
         send self.config.monitor, {:COMMANDER_FINISHED, self.config.node_num}
-        Helper.node_exit()
+        Process.exit(self(), :normal)
+        Helper.node_halt("Unreachable code in Commander: voting for current ballot is preempted")
 
       unexpected ->
         Helper.node_halt "Database: unexpected message #{inspect unexpected}"

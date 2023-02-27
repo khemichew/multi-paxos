@@ -17,6 +17,8 @@ defmodule Leader do
         spawn(Scout, :start, [self.config, self(), self.acceptors, self.ballot_number])
         Debug.info(config, self, "Leader #{self.config.node_num} started")
         self |> next()
+      unexpected ->
+        Helper.node_halt("Leader: unexpected message #{inspect(unexpected)}")
     end
   end
 
@@ -45,7 +47,7 @@ defmodule Leader do
         proposals = update_proposals(self.proposals, PValues.pmax(pvalues))
         self = %{self | proposals: proposals, active: true}
 
-        for {s, cmd} <- proposals do
+        for {s, cmd} <- self.proposals do
           spawn(Commander, :start, [
             self.config,
             self(),
@@ -57,17 +59,17 @@ defmodule Leader do
 
         self |> next()
 
-      %Adopted{} ->
+      %Adopted{ballot_number: _b, accepted_pvalues: _pvalues} ->
         self |> next()
 
-      %Preempted{ballot_number: %BallotNumber{priority: p} = b1} ->
-        if b1 > b do
-          ballot_number = %BallotNumber{priority: p + 1, leader_pid: self()}
+      %Preempted{ballot_number: %BallotNumber{priority: _p, leader_pid: _pid} = b1} ->
+        (if b1 > b do
+          ballot_number = %BallotNumber{priority: b1.priority + 1, leader_pid: self()}
           spawn(Scout, :start, [self.config, self(), self.acceptors, ballot_number])
           %{self | active: false, ballot_number: ballot_number}
         else
           self
-        end
+        end)
         |> next()
 
       unexpected ->

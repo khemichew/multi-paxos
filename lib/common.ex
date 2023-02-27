@@ -34,24 +34,6 @@ defmodule PValues do
   end
 end
 
-# defmodule Test do
-#   def main do
-#     # proposals map slot number to command
-#     proposals = %{1 => "a", 2 => "d", 3 => "f"}
-#     expected = %{1 => "b", 2 => "d", 3 => "f"}
-#     pvalues = MapSet.new([
-#       %PValue{ballot_number: %BallotNumber{priority: 101, leader_pid: self()}, slot_number: 1, command: "a"},
-#       %PValue{ballot_number: %BallotNumber{priority: 102, leader_pid: self()}, slot_number: 1, command: "b"},
-#       %PValue{ballot_number: %BallotNumber{priority: 101, leader_pid: self()}, slot_number: 2, command: "c"},
-#       %PValue{ballot_number: %BallotNumber{priority: 102, leader_pid: self()}, slot_number: 2, command: "d"}])
-
-#     IO.inspect(PValues.pmax(pvalues))
-#     f = Map.merge(proposals, PValues.pmax(pvalues), fn _k, _p1, p2 -> p2 end)
-#     IO.inspect(f)
-#     IO.inspect(expected)
-#   end
-# end
-
 # defmodule Command do
 #   @enforce_keys [:client_pid, :command_id, :operation]
 #   @type client_pid:: PID
