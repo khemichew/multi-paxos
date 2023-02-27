@@ -20,7 +20,8 @@ COOKIE  := $(shell echo $$PPID)
 
 NODE_SUFFIX := ${SECS}_${LOGNAME}@${HOST}
 
-ELIXIR  := elixir --no-halt --cookie ${COOKIE} --name
+ERLANG := "-kernel prevent_overlapping_partitions false" 
+ELIXIR := elixir --no-halt --cookie ${COOKIE} --erl ${ERLANG} --name
 MIX 	:= -S mix run -e ${START} \
 	${NODE_SUFFIX} ${MAX_TIME} ${DEBUG} ${SERVERS} ${CLIENTS} ${PARAMS}
 

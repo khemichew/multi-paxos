@@ -63,9 +63,9 @@ def params(:aimd_timeout) do
     perform_timeout: true,       # true => perform timeout, false => no timeout
     initial_timeout: 5,          # initial timeout (ms)
     timeout_min: 0,              # minimum timeout (ms)
-    timeout_max: 100,            # maximum timeout (ms)
-    timeout_multiply: 1.2,       # multiplicative increase in timeout
-    timeout_subtract: 3,         # subtractive increase in timeout
+    timeout_max: 200,            # maximum timeout (ms)
+    timeout_multiply: 1.5,       # multiplicative increase in timeout
+    timeout_subtract: 20,         # subtractive increase in timeout
   } # params :aimd
 end
 

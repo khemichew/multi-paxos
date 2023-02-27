@@ -31,8 +31,12 @@ defmodule Leader do
 
   def do_timeout(self, growth) when self.config.perform_timeout do
     timeout = case growth do
-      :increase -> round(max(self.timeout * self.config.timeout_multiply, self.config.timeout_max))
-      :decrease -> round(min(self.timeout - self.config.timeout_subtract, self.config.timeout_min))
+      :increase -> if self.timeout == 0 do
+        self.config.initial_timeout
+      else
+        round(min(self.timeout * self.config.timeout_multiply, self.config.timeout_max))
+      end
+      :decrease -> round(max(self.timeout - self.config.timeout_subtract, self.config.timeout_min))
       :maintain -> self.timeout
     end
     Process.sleep(timeout)
@@ -77,22 +81,22 @@ defmodule Leader do
         self |> do_timeout(:decrease) |> next()
 
       %Preempted{ballot_number: %BallotNumber{priority: _p, leader_pid: other_pid} = other_b} ->
-        self = (if other_b > b do
-          ballot_number = %BallotNumber{priority: other_b.priority + 1, leader_pid: self()}
-          spawn(Scout, :start, [self.config, self(), self.acceptors, ballot_number])
-          %{self | active: false, ballot_number: ballot_number}
-        else
-          self
-        end)
-
         # the leader is competing with another leader for the same proposal
-        (if other_pid > self() do
+        self = (if other_pid > self() do
           Debug.info(self.config, "Increase timeout", 30)
           self |> do_timeout(:increase)
         else
 
           Debug.info(self.config, "Maintain timeout", 30)
           self |> do_timeout(:maintain)
+        end)
+
+        (if other_b > b do
+          ballot_number = %BallotNumber{priority: other_b.priority + 1, leader_pid: self()}
+          spawn(Scout, :start, [self.config, self(), self.acceptors, ballot_number])
+          %{self | active: false, ballot_number: ballot_number}
+        else
+          self
         end) |> next()
 
       unexpected ->
