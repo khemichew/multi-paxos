@@ -14,7 +14,7 @@ def start config do
 end # start
 
 defp next(self) do
-  Debug.letter(self.config, "D")
+  Debug.letter(self.config, "D", 20)
   receive do
   { :EXECUTE, transaction } ->
     Debug.info(self.config, "Execute transaction: #{inspect transaction}", 10)

@@ -46,7 +46,9 @@ def params(:default) do
 
   window_size:   10,            # multi-paxos window size
 
-  crash_servers: %{  }          # server_num => crash_after_time(ms)
+  crash_servers: %{  },         # server_num => crash_after_time(ms)
+  perform_timeout: false,       # true => perform timeout, false => no timeout
+  initial_timeout: 0,           # initial timeout (ms)
   }
 
   # redact: performance/liveness/distribution parameters
@@ -54,6 +56,30 @@ def params(:default) do
 end # params :default
 
 # -----------------------------------------------------------------------------
+
+def params(:aimd_timeout) do
+  Map.merge (params :default),
+  %{
+    perform_timeout: true,       # true => perform timeout, false => no timeout
+    initial_timeout: 5,          # initial timeout (ms)
+    timeout_min: 0,              # minimum timeout (ms)
+    timeout_max: 100,            # maximum timeout (ms)
+    timeout_multiply: 1.2,       # multiplicative increase in timeout
+    timeout_subtract: 3,         # subtractive increase in timeout
+  } # params :aimd
+end
+
+def params(:regular_timeout) do
+  Map.merge (params :default),
+  %{
+    perform_timeout: true,       # true => perform timeout, false => no timeout
+    initial_timeout: 3,          # time (ms) to sleep for leader
+    timeout_min: 3,              # minimum timeout (ms)
+    timeout_max: 3,              # maximum timeout (ms)
+    timeout_multiply: 1,         # multiplicative increase in timeout
+    timeout_subtract: 0,         # subtractive increase in timeout
+  }
+end # params :regular_sleep
 
 def params(:crash2) do         # crash 2 servers
   Map.merge (params :default),

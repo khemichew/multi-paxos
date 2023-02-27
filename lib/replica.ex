@@ -55,7 +55,7 @@ defmodule Replica do
 
       # execute command on current state
       send self.database_pid, {:EXECUTE, transaction}
-      Debug.info(self.config, "  Executing #{inspect transaction} on #{inspect self.database_pid} (slot #{slot_out})")
+      Debug.info(self.config, "  Executing #{inspect transaction} on #{inspect self.database_pid} (slot #{slot_out})", 20)
 
       # return result to client
       send client_pid, {:CLIENT_REPLY, command_id, :ok}

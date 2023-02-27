@@ -11,7 +11,8 @@ defmodule Leader do
           active: false,
           proposals: Map.new(),
           acceptors: Enum.into(acceptors, MapSet.new()),
-          replicas: replicas
+          replicas: replicas,
+          timeout: config.initial_timeout
         }
 
         spawn(Scout, :start, [self.config, self(), self.acceptors, self.ballot_number])
@@ -28,6 +29,18 @@ defmodule Leader do
     Map.merge(proposals, pmax, fn _k, _p1, p2 -> p2 end)
   end
 
+  def do_timeout(self, growth) when self.config.perform_timeout do
+    timeout = case growth do
+      :increase -> round(max(self.timeout * self.config.timeout_multiply, self.config.timeout_max))
+      :decrease -> round(min(self.timeout - self.config.timeout_subtract, self.config.timeout_min))
+      :maintain -> self.timeout
+    end
+    Process.sleep(timeout)
+    %{self | timeout: timeout}
+  end
+
+  def do_timeout(self, _growth), do: self
+
   def next(%{ballot_number: b} = self) do
     receive do
       %Propose{slot_number: s, command: cmd} ->
@@ -40,8 +53,7 @@ defmodule Leader do
           %{self | proposals: Map.put(self.proposals, s, cmd)}
         else
           self
-        end)
-        |> next()
+        end) |> do_timeout(:maintain) |> next()
 
       %Adopted{ballot_number: ^b, accepted_pvalues: pvalues} ->
         proposals = update_proposals(self.proposals, PValues.pmax(pvalues))
@@ -57,20 +69,31 @@ defmodule Leader do
           ])
         end
 
-        self |> next()
+        # the leader does not seem to compete with another leader for the same proposal
+        self |> do_timeout(:decrease) |> next()
 
       %Adopted{ballot_number: _b, accepted_pvalues: _pvalues} ->
-        self |> next()
+        # the leader does not seem to compete with another leader for the same proposal
+        self |> do_timeout(:decrease) |> next()
 
-      %Preempted{ballot_number: %BallotNumber{priority: _p, leader_pid: _pid} = b1} ->
-        (if b1 > b do
-          ballot_number = %BallotNumber{priority: b1.priority + 1, leader_pid: self()}
+      %Preempted{ballot_number: %BallotNumber{priority: _p, leader_pid: other_pid} = other_b} ->
+        self = (if other_b > b do
+          ballot_number = %BallotNumber{priority: other_b.priority + 1, leader_pid: self()}
           spawn(Scout, :start, [self.config, self(), self.acceptors, ballot_number])
           %{self | active: false, ballot_number: ballot_number}
         else
           self
         end)
-        |> next()
+
+        # the leader is competing with another leader for the same proposal
+        (if other_pid > self() do
+          Debug.info(self.config, "Increase timeout", 5)
+          self |> do_timeout(:increase)
+        else
+
+          Debug.info(self.config, "Maintain timeout", 5)
+          self |> do_timeout(:maintain)
+        end) |> next()
 
       unexpected ->
         Helper.node_halt("Database: unexpected message #{inspect(unexpected)}")
