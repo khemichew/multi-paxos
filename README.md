@@ -1,4 +1,4 @@
-# Multipaxos
+# Multi-Paxos
 
 Multidecree Paxos is a protocol used in distributed systems to achieve consensus
 among a group of nodes on multiple values and how the values are ordered. It is 
